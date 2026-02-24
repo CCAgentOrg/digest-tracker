@@ -1,0 +1,46 @@
+# digest-tracker
+
+> Track topics, fetch news from media and blog sources, and generate digests with Turso SQLite storage. A CLI tool for creating daily, weekly, or monthly digests that can be published to blogs.
+
+digest-tracker is a CLI tool for topic tracking and digest generation. It supports:
+- Multiple source types: RSS feeds, web scraping, YouTube
+- Incremental fetching - only retrieves new content since last run
+- Turso SQLite cloud storage with local SQLite fallback
+- Daily, weekly, and monthly digest generation
+- Blog publishing to local, Hugo, Jekyll, and WordPress
+- WhatsApp-formatted digest output
+
+## Documentation
+
+- [digest-tracker Documentation](https://ccagentorg.github.io/digest-tracker/): Complete documentation including quick start, configuration, and all CLI commands
+- [Quick Start Guide](https://ccagentorg.github.io/digest-tracker/#quick-start): Get started with topic tracking in 5 minutes
+- [CLI Commands Reference](https://ccagentorg.github.io/digest-tracker/#cli-commands): Complete reference for all digest commands
+- [Blog Publishing](https://ccagentorg.github.io/digest-tracker/#blog-publishing): Configure and publish digests to various blog platforms
+- [Turso Setup](https://ccagentorg.github.io/digest-tracker/#turso-setup): Guide for setting up Turso cloud SQLite database
+
+## Installation
+
+- [PyPI Package](https://pypi.org/project/digest-tracker/): Install with `pip install digest-tracker`
+- [GitHub Repository](https://github.com/CCAgentOrg/digest-tracker): Source code, issues, and contributions
+
+## Configuration
+
+- [Configuration File](https://ccagentorg.github.io/digest-tracker/#configuration): Setting up config.yml for Turso, topics, and sources
+- [Environment Variables](https://ccagentorg.github.io/digest-tracker/#environment-variables): TURSO_DATABASE_URL and TURSO_AUTH_TOKEN
+
+## Source Types
+
+- [RSS Feeds](https://ccagentorg.github.io/digest-tracker/#rss-feeds): Fetching from RSS feeds with incremental updates
+- [Web Scraping](https://ccagentorg.github.io/digest-tracker/#web-scraping): Extracting articles from web pages
+- [YouTube](https://ccagentorg.github.io/digest-tracker/#youtube): Fetching videos from channels and search queries
+
+## Blog Types
+
+- [Local Blogs](https://ccagentorg.github.io/digest-tracker/#local-blogs): Publishing to local directories
+- [Hugo Blogs](https://ccagentorg.github.io/digest-tracker/#hugo-blogs): Publishing to Hugo sites with frontmatter
+- [Jekyll Blogs](https://ccagentorg.github.io/digest-tracker/#jekyll-blogs): Publishing to Jekyll sites with frontmatter
+
+## Optional
+
+- [nanobot-skills digest-tracker](https://github.com/CCAgentOrg/nanobot-skills/tree/main/digest-tracker): nanobot skill wrapper for digest-tracker CLI
+- [CCAgentOrg](https://github.com/CCAgentOrg): Organization page for CCAgentOrg projects
