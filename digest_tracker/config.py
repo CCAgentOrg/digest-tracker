@@ -44,9 +44,11 @@ class Config(BaseModel):
         
         if not path.exists():
             # Create default config from environment
+            # Check DIGEST_DB_URL for testing, fallback to TURSO_DATABASE_URL
+            db_url = os.getenv("DIGEST_DB_URL") or os.getenv("TURSO_DATABASE_URL", "")
             return cls(
                 turso=TursoConfig(
-                    database_url=os.getenv("TURSO_DATABASE_URL", ""),
+                    database_url=db_url,
                     auth_token=os.getenv("TURSO_AUTH_TOKEN")
                 )
             )

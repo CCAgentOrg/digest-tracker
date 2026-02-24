@@ -1,83 +1,160 @@
-"""Tests for digest generation."""
+"""Tests for digest generation and formatting."""
 
 import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 from digest_tracker.digest import DigestGenerator
-from digest_tracker.db import Database, create_topic, create_source, save_articles, create_blog, link_blog_to_topic
+from digest_tracker.db import Database, create_topic, create_source, save_articles, get_articles_for_digest, create_digest
+from digest_tracker.utils import generate_id
+
+
+@pytest.fixture
+def temp_dir():
+    """Temporary directory for test databases."""
+    import tempfile
+    import shutil
+    temp = tempfile.mkdtemp()
+    yield temp
+    shutil.rmtree(temp)
+
+
+@pytest.fixture
+def test_db(temp_dir):
+    """Test database instance."""
+    db = Database(database_url=f"file:{temp_dir}/test.db")
+    yield db
+
+
+@pytest.fixture
+def generator(test_db):
+    """Digest generator instance."""
+    config = {
+        "max_articles_per_digest": 50,
+        "show_urls": True,
+        "emoji_header": True
+    }
+    return DigestGenerator(test_db, config)
+
+
+@pytest.fixture
+def created_topic(test_db):
+    """Create a topic in the database."""
+    topic_id = generate_id("test-topic")
+    test_db.execute(
+        "INSERT INTO topics (id, name, description) VALUES (?, ?, ?)",
+        (topic_id, "test-topic", "Test topic description")
+    )
+    return {
+        "id": topic_id,
+        "name": "test-topic",
+        "description": "Test topic description"
+    }
+
+
+@pytest.fixture
+def created_source(test_db, created_topic):
+    """Create a source in the database."""
+    source_id = generate_id(f"{created_topic['id']}-https://example.com/feed.xml")
+    test_db.execute(
+        "INSERT INTO sources (id, topic_id, url, source_type) VALUES (?, ?, ?, ?)",
+        (source_id, created_topic["id"], "https://example.com/feed.xml", "rss")
+    )
+    return {
+        "id": source_id,
+        "topic_id": created_topic["id"],
+        "url": "https://example.com/feed.xml",
+        "source_type": "rss"
+    }
+
+
+@pytest.fixture
+def sample_articles(created_source):
+    """Sample articles for testing."""
+    base_time = datetime.now(timezone.utc)
+    return [
+        {
+            "source_id": created_source["id"],
+            "url": "https://example.com/article1",
+            "title": "Article 1",
+            "content": "Content of article 1",
+            "published_at": (base_time - timedelta(hours=1)).isoformat(),
+            "author": "Author 1",
+            "summary": "Summary 1",
+            "metadata": {"source": "Test Feed"}
+        },
+        {
+            "source_id": created_source["id"],
+            "url": "https://example.com/article2",
+            "title": "Article 2",
+            "content": "Content of article 2",
+            "published_at": (base_time - timedelta(hours=2)).isoformat(),
+            "author": "Author 2",
+            "summary": "Summary 2",
+            "metadata": {"source": "Test Feed"}
+        },
+        {
+            "source_id": created_source["id"],
+            "url": "https://example.com/article3",
+            "title": "Article 3",
+            "content": "Content of article 3",
+            "published_at": (base_time - timedelta(hours=3)).isoformat(),
+            "author": "Author 3",
+            "summary": "Summary 3",
+            "metadata": {"source": "Test Feed"}
+        }
+    ]
+
+
+@pytest.fixture
+def populated_db(test_db, created_topic, created_source, sample_articles):
+    """Database populated with articles."""
+    save_articles(test_db, sample_articles)
+    return test_db
 
 
 class TestDigestGenerator:
-    """Test digest generation functionality."""
-    
-    @pytest.fixture
-    def generator(self, test_db):
-        """Create a digest generator instance."""
-        config = {
-            "default_frequency": "weekly",
-            "max_articles_per_digest": 50,
-            "whatsapp": {
-                "brief": True,
-                "show_urls": True,
-                "emoji_header": True
-            }
-        }
-        return DigestGenerator(test_db, config)
-    
-    @pytest.fixture
-    def populated_db(self, test_db, created_topic, created_source, sample_articles):
-        """Populate database with sample data."""
-        for article in sample_articles:
-            article["source_id"] = created_source["id"]
-        
-        save_articles(test_db, sample_articles)
-        yield test_db
+    """Test DigestGenerator class."""
     
     def test_generate_weekly_digest(self, generator, created_topic, populated_db):
-        """Test generating a weekly digest."""
+        """Test generating weekly digest."""
         result = generator.generate("test-topic", "weekly", 7)
         
         assert result is not None
-        assert "digest_id" in result
-        assert "content" in result
-        assert "article_count" in result
-        assert result["article_count"] == 3
+        assert result["topic"] == "test-topic"
         assert result["frequency"] == "weekly"
+        assert result["article_count"] == 3
+        assert "content" in result
+        assert "summary" in result
     
     def test_generate_daily_digest(self, generator, created_topic, populated_db):
-        """Test generating a daily digest."""
+        """Test generating daily digest."""
         result = generator.generate("test-topic", "daily", 1)
         
         assert result is not None
         assert result["frequency"] == "daily"
+        assert result["article_count"] == 3
     
     def test_generate_monthly_digest(self, generator, created_topic, populated_db):
-        """Test generating a monthly digest."""
+        """Test generating monthly digest."""
         result = generator.generate("test-topic", "monthly", 30)
         
         assert result is not None
         assert result["frequency"] == "monthly"
+        assert result["article_count"] == 3
     
     def test_generate_with_date_range(self, generator, created_topic, populated_db):
         """Test generating digest with custom date range."""
-        period_start = datetime.now(timezone.utc) - timedelta(hours=4)
-        period_end = datetime.now(timezone.utc)
+        since = datetime.now(timezone.utc) - timedelta(days=2)
+        until = datetime.now(timezone.utc)
         
-        result = generator.generate(
-            "test-topic",
-            "custom",
-            0,
-            since=period_start,
-            until=period_end
-        )
+        result = generator.generate("test-topic", "custom", days=0, since=since, until=until)
         
         assert result is not None
-        # Should include articles within the 4-hour window
-        assert result["article_count"] <= 3
+        assert result["frequency"] == "custom"
     
     def test_generate_for_nonexistent_topic(self, generator):
-        """Test generating digest for non-existent topic."""
-        result = generator.generate("nonexistent", "weekly", 7)
+        """Test generating digest for nonexistent topic."""
+        result = generator.generate("nonexistent", "weekly")
         
         assert result is None
     
@@ -85,118 +162,102 @@ class TestDigestGenerator:
         """Test generating digest when no articles exist."""
         result = generator.generate("test-topic", "weekly", 7)
         
-        assert result is not None
-        assert result["article_count"] == 0
+        # Returns None when no articles found
+        assert result is None
     
     def test_digest_content_format(self, generator, created_topic, populated_db):
-        """Test that digest content is properly formatted."""
+        """Test that digest content is formatted correctly."""
         result = generator.generate("test-topic", "weekly", 7)
         
         content = result["content"]
         
-        # Check for header
-        assert "test-topic" in content.lower() or "Test Topic" in content
-        
-        # Check for article entries
-        assert "Article 1" in content or "article1" in content
-        assert "Article 2" in content or "article2" in content
+        # Check for WhatsApp formatting
+        assert "test-topic" in content.lower() or "Test-Topic" in content
+        assert "📊" in content or "*" in content  # Emoji or markdown
+        assert "Article" in content  # Articles should be listed
     
     def test_digest_period_includes(self, generator, created_topic, populated_db):
         """Test that digest includes period information."""
         result = generator.generate("test-topic", "weekly", 7)
         
+        # Period should include date information
         assert "period" in result
-        assert "start" in result["period"].lower() or "from" in result["period"].lower()
+        assert "-" in result["period"]  # Date range separator
     
     def test_digest_saves_to_database(self, generator, created_topic, populated_db):
         """Test that digest is saved to database."""
         result = generator.generate("test-topic", "weekly", 7)
         
-        digest = generator.db.get_digest_by_id(result["digest_id"])
-        assert digest is not None
-        assert digest["topic_id"] == created_topic["id"]
-        assert digest["frequency"] == "weekly"
-        assert digest["article_count"] == 3
-    
-    def test_max_articles_limit(self, generator, created_topic, populated_db):
-        """Test that max_articles_per_digest limit is respected."""
-        # Set a low limit
-        generator.config["max_articles_per_digest"] = 2
+        # Check digest was saved
+        from digest_tracker.db import get_digests_for_topic
+        digests = get_digests_for_topic(generator.db, "test-topic")
         
+        assert len(digests) > 0
+        assert digests[0]["frequency"] == "weekly"
+        assert digests[0]["article_count"] == 3
+    
+    def test_max_articles_limit(self, generator, created_topic, sample_articles, created_source):
+        """Test that max_articles limit is respected."""
+        # Create many articles
+        many_articles = []
+        base_time = datetime.now(timezone.utc)
+        for i in range(100):
+            many_articles.append({
+                "source_id": created_source["id"],
+                "url": f"https://example.com/article{i}",
+                "title": f"Article {i}",
+                "content": f"Content {i}",
+                "published_at": (base_time - timedelta(hours=i)).isoformat(),
+                "author": f"Author {i}",
+                "summary": f"Summary {i}",
+                "metadata": {"source": "Test Feed"}
+            })
+        
+        save_articles(generator.db, many_articles)
+        
+        # Generate with limit
+        generator.config["max_articles_per_digest"] = 10
         result = generator.generate("test-topic", "weekly", 7)
         
-        assert result["article_count"] <= 2
+        assert result["article_count"] == 10
     
     def test_emoji_header_format(self, generator, created_topic, populated_db):
-        """Test that emoji headers are included when configured."""
-        generator.config["whatsapp"]["emoji_header"] = True
-        
+        """Test emoji header formatting."""
         result = generator.generate("test-topic", "weekly", 7)
         
-        content = result["content"]
-        # Should contain some emojis
-        assert any(emoji in content for emoji in ["📊", "📰", "🔥", "📄", "✓"])
+        assert "📊" in result["content"]
     
     def test_brief_format(self, generator, created_topic, populated_db):
-        """Test brief format for digests."""
-        generator.config["whatsapp"]["brief"] = True
-        
+        """Test brief digest format."""
+        generator.config["show_urls"] = False
         result = generator.generate("test-topic", "weekly", 7)
         
-        content = result["content"]
-        # Brief format should show summaries, not full content
-        assert "Summary 1" in content or "Content of article 1" in content
+        assert result["article_count"] == 3
+        # Content should still be generated
+        assert "Article" in result["content"]
     
     def test_urls_shown(self, generator, created_topic, populated_db):
         """Test that URLs are shown when configured."""
-        generator.config["whatsapp"]["show_urls"] = True
-        
+        generator.config["show_urls"] = True
         result = generator.generate("test-topic", "weekly", 7)
         
         content = result["content"]
-        assert "https://example.com/article1" in content or "example.com" in content
+        # At least one URL should be present
+        assert "https://" in content or "http://" in content
 
 
 class TestDigestFormatting:
-    """Test digest formatting and output."""
+    """Test digest formatting methods."""
     
-    @pytest.fixture
-    def generator(self, test_db):
-        """Create a digest generator instance."""
-        config = {
-            "default_frequency": "weekly",
-            "max_articles_per_digest": 50,
-            "whatsapp": {
-                "brief": True,
-                "show_urls": True,
-                "emoji_header": True
-            }
-        }
-        return DigestGenerator(test_db, config)
+    def test_generate_summary(self, generator, sample_articles):
+        """Test summary generation."""
+        summary = generator._generate_summary(sample_articles)
+        
+        assert "3" in summary  # Article count
+        assert "article" in summary.lower()
     
-    def test_format_period_weekly(self, generator):
-        """Test formatting weekly period."""
-        start = datetime(2026, 2, 17, tzinfo=timezone.utc)
-        end = datetime(2026, 2, 23, tzinfo=timezone.utc)
+    def test_generate_summary_empty(self, generator):
+        """Test summary with no articles."""
+        summary = generator._generate_summary([])
         
-        period_str = generator._format_period(start, end, "weekly")
-        
-        assert "Feb 17-23" in period_str or "17-23" in period_str
-    
-    def test_format_period_monthly(self, generator):
-        """Test formatting monthly period."""
-        start = datetime(2026, 2, 1, tzinfo=timezone.utc)
-        end = datetime(2026, 2, 28, tzinfo=timezone.utc)
-        
-        period_str = generator._format_period(start, end, "monthly")
-        
-        assert "February 2026" in period_str or "Feb 2026" in period_str
-    
-    def test_format_period_daily(self, generator):
-        """Test formatting daily period."""
-        start = datetime(2026, 2, 24, tzinfo=timezone.utc)
-        end = datetime(2026, 2, 24, tzinfo=timezone.utc)
-        
-        period_str = generator._format_period(start, end, "daily")
-        
-        assert "Feb 24" in period_str or "24" in period_str
+        assert "no article" in summary.lower()

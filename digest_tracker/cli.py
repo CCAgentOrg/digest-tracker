@@ -46,8 +46,15 @@ def topic():
 def add_topic(name: str, desc: str):
     """Add a new topic to track."""
     db = get_db()
-    topic_id = create_topic(db, name, desc)
-    click.echo(f"✓ Topic added: {name} (ID: {topic_id})")
+    try:
+        topic_id = create_topic(db, name, desc)
+        click.echo(f"✓ Topic added: {name} (ID: {topic_id})")
+    except Exception as e:
+        if "UNIQUE" in str(e):
+            click.echo(f"✗ Topic already exists: {name}")
+        else:
+            click.echo(f"✗ Failed to add topic: {e}")
+        raise click.ClickException("Failed to add topic")
 
 
 @topic.command("list")
@@ -124,11 +131,20 @@ def add_source(topic: str, url: str, source_type: str, config: str):
     
     if not topic_data:
         click.echo(f"✗ Topic not found: {topic}")
-        return
+        raise click.ClickException("Topic not found")
     
-    config_data = json.loads(config) if config else None
-    source_id = create_source(db, topic_data["id"], url, source_type, config_data)
-    click.echo(f"✓ Source added: {url} (ID: {source_id})")
+    try:
+        config_data = json.loads(config) if config else None
+    except json.JSONDecodeError as e:
+        click.echo(f"✗ Invalid JSON config: {e}")
+        raise click.ClickException("Invalid config")
+    
+    try:
+        source_id = create_source(db, topic_data["id"], url, source_type, config_data)
+        click.echo(f"✓ Source added: {url} (ID: {source_id})")
+    except Exception as e:
+        click.echo(f"✗ Failed to add source: {e}")
+        raise click.ClickException("Failed to add source")
 
 
 @source.command("list")
@@ -176,9 +192,18 @@ def add_blog(name: str, blog_type: str, config: str):
     import json
     
     db = get_db()
-    config_data = json.loads(config) if config else {}
-    blog_id = create_blog(db, name, blog_type, config_data)
-    click.echo(f"✓ Blog added: {name} (type: {blog_type}, ID: {blog_id})")
+    try:
+        config_data = json.loads(config) if config else {}
+    except json.JSONDecodeError as e:
+        click.echo(f"✗ Invalid JSON config: {e}")
+        raise click.ClickException("Invalid config")
+    
+    try:
+        blog_id = create_blog(db, name, blog_type, config_data)
+        click.echo(f"✓ Blog added: {name} (type: {blog_type}, ID: {blog_id})")
+    except Exception as e:
+        click.echo(f"✗ Failed to add blog: {e}")
+        raise click.ClickException("Failed to add blog")
 
 
 @blog.command("list")
