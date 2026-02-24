@@ -1,0 +1,54 @@
+[project]
+name = "digest-tracker"
+version = "0.1.0"
+description = "Track topics, fetch news, and generate digests with Turso storage"
+authors = [{name = "nanobot"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.1.0",
+    "libsql-client>=0.1.0",
+    "httpx>=0.27.0",
+    "feedparser>=6.0.0",
+    "python-dateutil>=2.9.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0.0",
+    "rich>=13.0.0",
+    "beautifulsoup4>=4.12.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+]
+
+[project.scripts]
+digest = "digest_tracker.cli:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=digest_tracker --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["digest_tracker"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
