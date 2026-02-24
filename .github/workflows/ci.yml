@@ -37,7 +37,7 @@ jobs:
       
       - name: Run tests
         run: |
-          pytest --cov=digest_tracker --cov-report=xml
+          pytest --cov=digest_tracker --cov-report=xml --cov-report=term-missing
       
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -74,15 +74,34 @@ jobs:
         with:
           name: dist
           path: dist/
+          retention-days: 7
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
 
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name == 'release' && github.event.action == 'published'
-    
-    permissions:
-      id-token: write  # Required for trusted publishing
     
     steps:
       - uses: actions/checkout@v4
