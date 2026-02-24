@@ -1,0 +1,276 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Copy documentation
+        run: |
+          # Create _site directory
+          mkdir -p _site
+          
+          # Create index.html with embedded documentation
+          cat > _site/index.html << 'HTML'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Digest Tracker - Track Topics, Fetch News, Generate Digests</title>
+            <meta name="description" content="CLI tool for tracking topics, fetching news from RSS feeds, and generating digests with Turso storage.">
+            <style>
+              :root {
+                --primary: #2563eb;
+                --primary-dark: #1e40af;
+                --bg: #ffffff;
+                --text: #1e293b;
+                --muted: #64748b;
+                --border: #e2e8f0;
+                --code-bg: #f8fafc;
+              }
+              * { box-sizing: border-box; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                max-width: 900px;
+                margin: 0 auto;
+                padding: 2rem 1.5rem;
+                line-height: 1.7;
+                color: var(--text);
+                background: var(--bg);
+              }
+              h1 {
+                color: var(--primary);
+                border-bottom: 3px solid var(--primary);
+                padding-bottom: 0.5rem;
+                margin-bottom: 1.5rem;
+                font-size: 2.5rem;
+              }
+              h2 {
+                color: var(--primary-dark);
+                margin-top: 2.5rem;
+                margin-bottom: 1rem;
+                font-size: 1.75rem;
+              }
+              h3 {
+                color: var(--text);
+                margin-top: 1.5rem;
+                margin-bottom: 0.75rem;
+                font-size: 1.25rem;
+              }
+              p { margin-bottom: 1rem; }
+              a { color: var(--primary); text-decoration: none; }
+              a:hover { text-decoration: underline; }
+              code {
+                background: var(--code-bg);
+                padding: 0.2rem 0.5rem;
+                border-radius: 4px;
+                font-family: "SFMono-Regular", Consolas, Monaco, monospace;
+                font-size: 0.9em;
+                color: #d946ef;
+              }
+              pre {
+                background: var(--code-bg);
+                padding: 1rem;
+                border-radius: 8px;
+                overflow-x: auto;
+                border: 1px solid var(--border);
+                margin: 1rem 0;
+              }
+              pre code {
+                background: none;
+                padding: 0;
+                color: var(--text);
+                font-size: 0.875rem;
+              }
+              ul, ol { padding-left: 1.5rem; }
+              li { margin: 0.5rem 0; }
+              blockquote {
+                border-left: 4px solid var(--primary);
+                padding-left: 1rem;
+                margin: 1rem 0;
+                color: var(--muted);
+                font-style: italic;
+              }
+              hr {
+                border: none;
+                border-top: 1px solid var(--border);
+                margin: 2rem 0;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 1rem 0;
+              }
+              th, td {
+                border: 1px solid var(--border);
+                padding: 0.75rem;
+                text-align: left;
+              }
+              th {
+                background: var(--code-bg);
+                font-weight: 600;
+              }
+              .hero {
+                background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+                padding: 2rem;
+                border-radius: 12px;
+                margin-bottom: 2rem;
+              }
+              .hero h1 { border: none; margin-bottom: 0.5rem; }
+              .badge {
+                display: inline-block;
+                padding: 0.25rem 0.75rem;
+                background: var(--primary);
+                color: white;
+                border-radius: 9999px;
+                font-size: 0.75rem;
+                font-weight: 600;
+                margin-right: 0.5rem;
+              }
+              .features {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 1rem;
+                margin: 1.5rem 0;
+              }
+              .feature {
+                padding: 1.25rem;
+                background: var(--code-bg);
+                border-radius: 8px;
+                border: 1px solid var(--border);
+              }
+              .feature-icon { font-size: 1.5rem; margin-right: 0.5rem; }
+              .command-box {
+                background: #1e293b;
+                color: #e2e8f0;
+                padding: 1rem;
+                border-radius: 8px;
+                font-family: monospace;
+                margin: 0.5rem 0;
+                overflow-x: auto;
+              }
+              @media (max-width: 640px) {
+                body { padding: 1rem; }
+                h1 { font-size: 2rem; }
+                h2 { font-size: 1.5rem; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="hero">
+              <p>
+                <span class="badge">v0.1.0</span>
+                <span class="badge" style="background: #059669">Stable</span>
+              </p>
+              <h1>Digest Tracker</h1>
+              <p style="font-size: 1.25rem; margin-bottom: 0;">
+                Track topics, fetch news, and generate digests with Turso storage
+              </p>
+            </div>
+          HTML
+
+          # Append markdown content converted to HTML
+          python3 - << 'PYTHON'
+          import re
+          import sys
+
+          with open('docs/index.md', 'r') as f:
+              md = f.read()
+
+          def markdown_to_html(md):
+              # Escape HTML
+              html = md.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+              
+              # Headers
+              html = re.sub(r'^### (.*$)', r'<h3 id="\1">\1</h3>', html, flags=re.M)
+              html = re.sub(r'^## (.*$)', r'<h2 id="\1">\1</h2>', html, flags=re.M)
+              html = re.sub(r'^# (.*$)', r'<h1>\1</h1>', html, flags=re.M)
+              
+              # Bold and italic
+              html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html)
+              html = re.sub(r'\*(.*?)\*', r'<em>\1</em>', html)
+              
+              # Code blocks
+              html = re.sub(r'```(\w+)?\n([\s\S]*?)```', r'<pre><code>\2</code></pre>', html)
+              html = re.sub(r'`([^`]+)`', r'<code>\1</code>', html)
+              
+              # Links
+              html = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', html)
+              
+              # Lists (simplified)
+              lines = html.split('\n')
+              in_list = False
+              list_type = None
+              result = []
+              
+              for line in lines:
+                  if line.startswith('- '):
+                      if not in_list or list_type != 'ul':
+                          if in_list:
+                              result.append(f'</{list_type}>')
+                          result.append('<ul>')
+                          in_list = True
+                          list_type = 'ul'
+                      result.append(f'<li>{line[2:]}</li>')
+                  elif re.match(r'^\d+\. ', line):
+                      if not in_list or list_type != 'ol':
+                          if in_list:
+                              result.append(f'</{list_type}>')
+                          result.append('<ol>')
+                          in_list = True
+                          list_type = 'ol'
+                      content = re.sub(r'^\d+\. ', '', line)
+                      result.append(f'<li>{content}</li>')
+                  else:
+                      if in_list:
+                          result.append(f'</{list_type}>')
+                          in_list = False
+                      if line.strip():
+                          result.append(f'<p>{line}</p>')
+              
+              if in_list:
+                  result.append(f'</{list_type}>')
+              
+              html = '\n'.join(result)
+              
+              # Clean up empty paragraphs
+              html = re.sub(r'<p></p>', '', html)
+              html = re.sub(r'<p>([^<]+)</p>', r'<p>\1</p>', html)
+              
+              return html
+
+          with open('_site/index.html', 'a') as f:
+              f.write(markdown_to_html(md))
+          PYTHON
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './_site'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
