@@ -2,6 +2,8 @@
 
 Track topics, fetch news, and generate digests with Turso storage.
 
+[![Documentation](https://img.shields.io/badge/docs-live-blue.svg)](https://ccagentorg.github.io/digest-tracker/)
+
 ## Features
 
 - **Topic Management**: Create and manage topics to track
